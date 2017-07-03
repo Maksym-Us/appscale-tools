@@ -109,7 +109,7 @@ Available commands:
     [nodes] [processes] [proxies]]  Prints nodes, processes and/or proxies stats.
     [--roles, -r <roles>]           Prints nodes ordered by roles.
     [--order-processes, -o
-    [cpu/mem/name]                  Prints processes sorted by cpu/memory/name.
+    [cpu/mem/name]]                 Prints processes sorted by cpu/memory/name.
     [--top <number>]                Prints only top-<number> processes.
     [--verbose, -v]                 Prints verbose processes and proxies stats.
     [--apps-only]                   Prints only applications proxies stats.

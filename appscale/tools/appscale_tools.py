@@ -322,7 +322,7 @@ class AppScaleTools(object):
       A list of headers nodes statistics.
       A list of nodes statistics.
     """
-    node_stats_headers = ["IP", "AVAILABLE MEMORY", "LOADAVG",
+    node_stats_headers = ["PRIVATE IP", "AVAILABLE MEMORY", "LOADAVG",
                           "PARTITIONS USAGE", "ROLES"]
 
     # TODO: get roles
@@ -399,7 +399,8 @@ class AppScaleTools(object):
       A list of headers processes statistics.
       A list of processes statistics.
     """
-    proc_stats_headers = ["IP", "MONIT NAME", "UNIQUE MEMORY (MB)", "CPU (%)"]
+    proc_stats_headers = ["PRIVATE IP", "MONIT NAME",
+                          "UNIQUE MEMORY (MB)", "CPU (%)"]
     proc_info = []
 
     for ip, node in proc_stats.iteritems():
@@ -510,7 +511,7 @@ class AppScaleTools(object):
       A list of headers proxies statistics.
       A list of proxies statistics.
     """
-    prox_stats_headers = ["SERVICE (ID)", "SERVERS", "REQ RATE / REQ TOTAL",
+    prox_stats_headers = ["SERVICE | ID", "SERVERS", "REQ RATE / REQ TOTAL",
                           "5xx / 4xx", "QUEUE CUR"]
 
     prox_stats_headers_verbose = ["SERVICE (ID)", "SERVERS",
