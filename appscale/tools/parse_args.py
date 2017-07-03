@@ -375,6 +375,39 @@ class ParseArgs(object):
       self.parser.add_argument('--keyname', '-k',
         default=self.DEFAULT_KEYNAME,
         help="the keypair name to use")
+
+    # appscale stats
+    #   [--show [nodes] [processes] [proxies]]
+    #   [-o, --order_processes [cpu/mem/instances] [summary]]
+    #   [--top int] (for processes only)
+    #   [-v, --verbose] (for proxies only)
+    #   [--apps-only] (for proxies only)
+    elif function == "appscale-show-stats":
+      self.parser.add_argument('--keyname', '-k',
+        default=self.DEFAULT_KEYNAME,
+        help="the keypair name to use")
+      self.parser.add_argument('--show',
+        nargs='*',
+        choices=['nodes', 'processes', 'proxies'],
+        default='',
+        help="the list of entities that statistics should be printed")
+      self.parser.add_argument('--roles', '-r',
+        nargs='*',
+        default=[],
+        help="print nodes with specified role(s)")
+      self.parser.add_argument('--order-processes', '-o',
+        nargs='*',
+        choices=['cpu', 'mem', 'name'],
+        default='cpu',
+        help="the arguments provide processes statistics order by")
+      self.parser.add_argument('--top',
+        default=None,
+        help="a number of top-processes to be printed")
+      self.parser.add_argument('--apps-only',
+        action='store_true',
+        default=False,
+        help="print only applications proxies statistics")
+
     elif function == "appscale-describe-instances":
       self.parser.add_argument('--keyname', '-k', default=self.DEFAULT_KEYNAME,
         help="the keypair name to use")
@@ -452,6 +485,11 @@ class ParseArgs(object):
         raise SystemExit("Must specify appname")
     elif function == "appscale-reset-pwd":
       pass
+
+    # TODO: if --top is not an int - raise an exception
+    elif function == "appscale-show-stats":
+      pass
+
     elif function == "appscale-describe-instances":
       pass
     elif function == "appscale-add-instances":
