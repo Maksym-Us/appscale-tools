@@ -387,16 +387,16 @@ class ParseArgs(object):
         default=self.DEFAULT_KEYNAME,
         help="the keypair name to use")
       self.parser.add_argument('--show',
-        nargs='*',
+        nargs='+',
         choices=['nodes', 'processes', 'proxies'],
-        default='',
+        default=['nodes', 'proxies'],
         help="the list of entities that statistics should be printed")
       self.parser.add_argument('--roles', '-r',
         nargs='*',
         default=[],
         help="print nodes with specified role(s)")
       self.parser.add_argument('--order-processes', '-o',
-        nargs='*',
+        nargs=1,
         choices=['cpu', 'mem', 'name'],
         default='cpu',
         help="the arguments provide processes statistics order by")
@@ -486,7 +486,6 @@ class ParseArgs(object):
     elif function == "appscale-reset-pwd":
       pass
 
-    # TODO: if --top is not an int - raise an exception
     elif function == "appscale-show-stats":
       pass
 
