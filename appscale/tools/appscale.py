@@ -78,6 +78,8 @@ Available commands:
   deploy <app>                      Deploys a Google App Engine app to AppScale:
                                     <app> can be the top level directory with the
                                     code or a tar.gz of the source tree.
+  create-user [--admin]             Creates a new user. If --admin option is specified, 
+                                    it will create the user as an admin.
   down [--clean][--terminate]       Gracefully terminates the currently
                                     running AppScale deployments. If
                                     instances were created, they will NOT
@@ -320,6 +322,26 @@ Available commands:
         AppScaleTools.add_keypair(add_keypair_opts)
 
     AppScaleTools.run_instances(run_instances_opts)
+
+  def create_user(self, is_admin=False):
+    """ 'create_user' Creates a new user from the tools.
+
+        Raises:
+          AppScalefileException: If there is no AppScalefile in the current
+            directory.
+          TypeError: If the user does not provide an new user credentials
+        """
+    contents = self.read_appscalefile()
+    contents_as_yaml = yaml.safe_load(contents)
+
+    command = []
+    if 'keyname' in contents_as_yaml:
+      command.append("--keyname")
+      command.append(contents_as_yaml["keyname"])
+
+    options = ParseArgs(command, "appscale-create-user").args
+
+    return AppScaleTools.create_user(options, is_admin)
 
   def valid_ssh_key(self, config, run_instances_opts):
     """ Checks if the tools can log into the head node with the current key.
@@ -904,4 +926,6 @@ Available commands:
 
     options = ParseArgs(command, 'appscale-upgrade').args
     options.ips = yaml.safe_load(base64.b64decode(options.ips_layout))
+    options.terminate = False
+    options.clean = False
     AppScaleTools.upgrade(options)

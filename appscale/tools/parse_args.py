@@ -400,6 +400,10 @@ class ParseArgs(object):
         action='store_true',
         default=False,
         help="print only applications proxies statistics")
+    elif function == "appscale-create-user":
+      self.parser.add_argument('--keyname', '-k',
+        default=self.DEFAULT_KEYNAME,
+        help="the keypair name to use")
     elif function == "appscale-describe-instances":
       self.parser.add_argument('--keyname', '-k', default=self.DEFAULT_KEYNAME,
         help="the keypair name to use")
@@ -477,10 +481,10 @@ class ParseArgs(object):
         raise SystemExit("Must specify appname")
     elif function == "appscale-reset-pwd":
       pass
-
+    elif function == "appscale-create-user":
+      pass
     elif function == "appscale-show-stats":
       pass
-
     elif function == "appscale-describe-instances":
       pass
     elif function == "appscale-add-instances":
