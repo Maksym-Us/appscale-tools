@@ -41,9 +41,6 @@ from remote_helper import RemoteHelper
 from version_helper import latest_tools_version
 from .admin_client import AdminClient
 
-# from stats_data import *
-from .appscale_stats import *
-
 
 def async_layout_upgrade(ip, keyname, script, error_bucket, verbose=False):
   """ Run a command over SSH and place exceptions in a bucket.

@@ -61,7 +61,7 @@ def _get_stats(keyname, path, include_lists=None):
 
   login_host = LocalState.get_login_host(keyname=keyname)
   secret = LocalState.get_secret_key(keyname=keyname)
-  hermes_port = "4378"
+  hermes_port = "17441"
   stats_path = "/stats/cluster/{path}".format(path=path)
 
   headers = {
@@ -157,7 +157,7 @@ def show_stats(options):
         column=0
       )
 
-  except ValueError as e:
+  except ValueError:
     AppScaleLogger.warn("'--top' could take only a number")
     raise
   except:
@@ -194,7 +194,7 @@ def get_marked(data, mark):
     mark: A string represents one of marks ('red', 'green' or 'bold').
 
   Returns:
-    A string marked in red.
+    A string marked in.
   """
   marks = {
     "red": "\033[91m",
@@ -224,7 +224,7 @@ def render_loadavg(loadavg):
     last_15 if last_15 < limit_value else get_marked(last_15, "red")
   )
 
-  
+
 def render_partitions(partitions, verbose=False):
   """
   Args:
@@ -448,14 +448,14 @@ def get_proc_stats_sum(keyname):
 
   for proc in proc_list:
     name = proc["unified_service_name"]
-    id = proc["application_id"]
-    name_id = name + (" ({})".format(id) if id else "")
+    app_id = proc["application_id"]
+    name_id = name + (" ({})".format(app_id) if app_id else "")
     if name_id in added:  # if calculating with process has been made
       continue
 
     grouped_procs = [p for p in proc_list
                      if p["unified_service_name"] == name
-                     and p["application_id"] == id]
+                     and p["application_id"] == app_id]
 
     added.add(name_id)
     unique_memory = 0

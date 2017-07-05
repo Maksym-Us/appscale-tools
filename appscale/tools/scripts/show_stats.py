@@ -1,10 +1,10 @@
 import sys
 import traceback
 
-from .. import version_helper
-from ..appscale_stats import show_stats
-from ..local_state import LocalState
-from ..parse_args import ParseArgs
+from appscale.tools import version_helper
+from appscale.tools.appscale_stats import show_stats
+from appscale.tools.local_state import LocalState
+from appscale.tools.parse_args import ParseArgs
 
 
 version_helper.ensure_valid_python_is_used()
