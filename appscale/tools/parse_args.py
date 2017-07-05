@@ -375,13 +375,6 @@ class ParseArgs(object):
       self.parser.add_argument('--keyname', '-k',
         default=self.DEFAULT_KEYNAME,
         help="the keypair name to use")
-
-    # appscale stats
-    #   [--show [nodes] [processes] [proxies]]
-    #   [-o, --order_processes [cpu/mem/instances] [summary]]
-    #   [--top int] (for processes only)
-    #   [-v, --verbose] (for proxies only)
-    #   [--apps-only] (for proxies only)
     elif function == "appscale-show-stats":
       self.parser.add_argument('--keyname', '-k',
         default=self.DEFAULT_KEYNAME,
@@ -407,7 +400,6 @@ class ParseArgs(object):
         action='store_true',
         default=False,
         help="print only applications proxies statistics")
-
     elif function == "appscale-describe-instances":
       self.parser.add_argument('--keyname', '-k', default=self.DEFAULT_KEYNAME,
         help="the keypair name to use")

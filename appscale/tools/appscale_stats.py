@@ -1,10 +1,14 @@
 import json
 import requests
 
+from appcontroller_client import AppControllerClient
+from local_state import LocalState
+
 from tabulate import tabulate
 from appscale_logger import AppScaleLogger
 
 
+# Needed field list to nodes statistics
 INCLUDE_NODE_LIST = {
   'node': ['memory', 'loadavg', 'partitions_dict'],
   'node.loadavg': ['last_1min', 'last_5min', 'last_15min'],
@@ -12,6 +16,7 @@ INCLUDE_NODE_LIST = {
 
 }
 
+# Needed field list to processes statistics
 INCLUDE_PROCESS_LIST = {
   'process': ['unified_service_name', 'application_id', 'monit_name', 'memory',
               'cpu', 'children_num', 'children_stats_sum'],
@@ -20,68 +25,174 @@ INCLUDE_PROCESS_LIST = {
   'process.children_stats_sum': ['memory', 'cpu']
 }
 
+# Needed node field list to processes statistics
+INCLUDE_NODE_LIST_FOR_PROCESSES = {
+  'node': ['cpu'],
+  'node.cpu': ['count']
+}
+
+# Needed field list to proxies statistics
 INCLUDE_PROXY_LIST = {
-  'proxy': ['unified_service_name', 'application_id', 'servers',
+  'proxy': ['unified_service_name', 'application_id', 'servers_count',
             'frontend', 'backend'],
-  'proxy.servers': ['req_rate', 'req_tot', 'hrsp_5xx', 'hrsp_4xx',
-                    'bin', 'bout', 'scur', 'qcur'],
   'proxy.frontend': ['req_rate', 'req_tot', 'hrsp_5xx', 'hrsp_4xx',
                      'bin', 'bout', 'scur'],
   'proxy.backend': ['qtime', 'rtime', 'qcur']
 }
 
 
-def encode_dict(d, codec='utf8'):
-  ks = d.keys()
-  for k in ks:
-    val = d.pop(k)
-    if isinstance(val, unicode):
-      val = val.encode(codec)
-    elif isinstance(val, dict):
-      val = encode_dict(val, codec)
-    if isinstance(k, unicode):
-      k = k.encode(codec)
-    d[k] = val
-  return d
-
-# get_nodes_stats():
-#   _get_stats()
-# get_processes_stats():
-#   _get_stats()
-# get_proxies_stats():
-#   _get_stats()
-# _get_stats(host, secret)
-
-
-def get_stats(ip, secret, nodes=True, processes=False, proxies=True):
+def _get_stats(keyname, path, include_lists=None):
   """
-  Returns stats from HERMES.
+  Returns statistics from Hermes.
+
+  Args:
+    keyname: A string represents an identifier from AppScaleFile.
+    path: A string represents one of 'nodes', 'processes' or 'proxies'.
+    include_lists: A list represents a list of desired fields.
   """
-  stats = {}
+  if not include_lists:
+    include_lists = {}
+    if path is 'nodes':
+      include_lists.update(INCLUDE_NODE_LIST)
+    if path is 'processes':
+      include_lists.update(INCLUDE_PROCESS_LIST)
+    if path is 'proxies':
+      include_lists.update(INCLUDE_PROXY_LIST)
 
-  url = "http://192.168.33.10:4378/stats/cluster/nodes"
-
-  arguments = {
-    'include_lists': INCLUDE_NODE_LIST
-  }
+  login_host = LocalState.get_login_host(keyname=keyname)
+  secret = LocalState.get_secret_key(keyname=keyname)
+  hermes_port = "4378"
+  stats_path = "/stats/cluster/{path}".format(path=path)
 
   headers = {
     'Appscale-Secret': str(secret)
   }
 
-  r = requests.get(url=url, data=json.dumps(arguments), headers=headers)
-  # cont = r._content
-  # dec = json.JSONDecoder()
-  # nodes = json.JSONDecoder().decode(r._content)
-  nodes = encode_dict(json.JSONDecoder().decode(r._content))
+  data = {
+    'include_lists': include_lists
+  }
 
-  stats["nodes"] = nodes      # response['stats]
+  url = "http://{ip}:{port}{path}".format(
+    ip=login_host,
+    port=hermes_port,
+    path=stats_path
+  )
 
-  return stats
+  resp = requests.get(url=url, headers=headers, data=json.dumps(data))
+
+  return resp.json()["stats"]
+
+
+def show_stats(options):
+  """
+  Prints nodes, processes and/or proxies statistics nicely.
+
+  Args:
+    options: A Namespace that has fields for each parameter that can be
+      passed in via the command-line interface.
+
+  Raises:
+    AttributeError: if some of statistic is equal None.
+  """
+  try:
+    nodes_stats = None
+    processes_stats = None
+    proxies_stats = None
+
+    if options.show:
+      if "nodes" in options.show:
+        nodes_stats = []
+      if "processes" in options.show:
+        processes_stats = []
+      if "proxies" in options.show:
+        proxies_stats = []
+
+    verbose = False
+    if options.verbose:
+      verbose = True
+
+    if nodes_stats is not None:
+      nodes_stats = get_node_stats(keyname=options.keyname,
+                                   specified_roles=options.roles,
+                                   verbose=verbose)
+
+    if processes_stats is not None:
+      summary = True
+      top = None
+      if options.verbose:
+        summary = False
+      if "name" in options.order_processes:
+        sort = 0 if summary else 1
+      elif "mem" in options.order_processes:
+        sort = 2 if summary else 2
+      elif "cpu" in options.order_processes:
+        sort = 3 if summary else 3
+      if options.top:
+        top = int(options.top)
+
+      processes_stats = (
+        get_proc_stats(keyname=options.keyname)
+        if not summary
+        else get_proc_stats_sum(keyname=options.keyname)
+      )
+      processes_stats = processes_stats[0], sort_proc_stats(
+        proc_stats=processes_stats[1],
+        column=sort,
+        top=top,
+        reverse=False if "name" in options.order_processes else True
+      )
+
+    if proxies_stats is not None:
+      apps_only = False
+      if options.apps_only:
+        apps_only = True
+
+      proxies_stats = get_prox_stats(
+        keyname=options.keyname,
+        verbose=verbose,
+        apps_filter=apps_only
+      )
+      proxies_stats = proxies_stats[0], sort_prox_stats(
+        prox_stats=proxies_stats[1],
+        column=0
+      )
+
+  except ValueError as e:
+    AppScaleLogger.warn("'--top' could take only a number")
+    raise
+  except:
+    AppScaleLogger.warn("Invalid statistis")
+    raise
+
+  if nodes_stats:
+    print_table(
+      table_name="NODES STATISTICS",
+      headers=nodes_stats[0],
+      data=nodes_stats[1]
+    )
+
+  if processes_stats:
+    print_table(
+      table_name="SUMMARY PROCESSES STATISTICS"
+      if summary else "PROCESSES STATISTICS",
+      headers=processes_stats[0],
+      data=processes_stats[1]
+    )
+
+  if proxies_stats:
+    print_table(
+      table_name="PROXIES STATISTICS",
+      headers=proxies_stats[0],
+      data=proxies_stats[1]
+    )
 
 
 def get_marked(data, mark):
   """
+  Args:
+    data: An object to be marked in.
+    mark: A string represents one of marks ('red', 'green' or 'bold').
+
   Returns:
     A string marked in red.
   """
@@ -95,6 +206,9 @@ def get_marked(data, mark):
 
 def render_loadavg(loadavg):
   """
+  Args:
+    loadavg: A dict represents a list of loadavg values.
+
   Returns:
     A string with information about node loadavg
     last 1, 5 and 15 minuts in format: "last 1min / last 5min / last 15min"
@@ -111,11 +225,16 @@ def render_loadavg(loadavg):
   )
 
   
-def render_partitions(partitions):
+def render_partitions(partitions, verbose=False):
   """
+  Args:
+    partitions: A dict represents a list of partition values.
+    verbose: A boolean - show all partitions if True,
+      only three partitions if False.
+
   Returns:
     A string with information about node partitions
-    in format: "partition1: used %, partition2: used %, ..."
+    in format: "partition1: used %, partition2: used %, ..." if not verbose
     and marked in red if partition is used more than 90%.
   """
   part_list = [[part, 100 * value["used"] / value["total"]]
@@ -132,14 +251,18 @@ def render_partitions(partitions):
     for part in part_list
   ]
 
-  if len(partitions_info) > 3:
-    partitions_info = partitions_info[:3] + ["..."]
+  if not verbose:
+    if len(partitions_info) > 3:
+      partitions_info = partitions_info[:3] + ["..."]
 
   return ", ".join(partitions_info)
 
 
 def render_memory(memory):
   """
+  Args:
+    memory: A dict represents a list of memory values.
+
   Returns:
     A string with information about node memory
     in format: "available % / available MB".
@@ -150,14 +273,18 @@ def render_memory(memory):
   )
 
 
-def get_roles(roles, ip):
-  return roles[ip]
-
-
-def get_node_stats(nodes_stats, roles, specified_roles=None):
+def get_node_stats(keyname, specified_roles=None, verbose=False):
   """
   Obtaines useful information from nodes statistics and returns:
   IP, AVAILABLE MEMORY, LOADAVG, PARTITIONS USAGE values.
+
+  Args:
+    keyname: A string represents an identifier from AppScaleFile.
+    specified_roles: A list represents specified roles
+      shown nodes should contain.
+    verbose: A boolean - show all partitions if True,
+      only three partitions if False.
+
   Returns:
     A list of headers nodes statistics.
     A list of nodes statistics.
@@ -165,9 +292,26 @@ def get_node_stats(nodes_stats, roles, specified_roles=None):
   node_stats_headers = ["PRIVATE IP", "AVAILABLE MEMORY", "LOADAVG",
                         "PARTITIONS USAGE", "ROLES"]
 
+  nodes_stats = _get_stats(keyname=keyname, path="nodes")
+
+  login_host = LocalState.get_login_host(keyname=keyname)
+  login_acc = AppControllerClient(
+    login_host,
+    LocalState.get_secret_key(keyname)
+  )
+  all_private_ips = login_acc.get_all_private_ips()
+  cluster_stats = login_acc.get_cluster_stats()
+  roles_data = {
+    ip:
+      next(
+        n["roles"] for n in cluster_stats if n["private_ip"] == ip
+      )
+    for ip in all_private_ips
+  }
+
   nodes_info = []
   for ip, node in nodes_stats.iteritems():
-    rls = get_roles(roles=roles, ip=ip)
+    rls = roles_data[ip]
     show = True
 
     if specified_roles:
@@ -181,7 +325,7 @@ def get_node_stats(nodes_stats, roles, specified_roles=None):
           ip,
           render_memory(memory=node["memory"]),
           render_loadavg(loadavg=node["loadavg"]),
-          render_partitions(partitions=node["partitions_dict"]),
+          render_partitions(partitions=node["partitions_dict"], verbose=verbose),
           u", ".join(rls)
         ]
       if "shadow" in rls:
@@ -190,7 +334,9 @@ def get_node_stats(nodes_stats, roles, specified_roles=None):
           get_marked(render_memory(memory=node["memory"]), "bold"),
           get_marked(render_loadavg(loadavg=node["loadavg"]), "bold"),
           get_marked(
-            render_partitions(partitions=node["partitions_dict"]), "bold"),
+            render_partitions(partitions=node["partitions_dict"],
+                              verbose=verbose), "bold"
+          ),
           get_marked(u", ".join(rls), "bold")
         ]
       nodes_info.append(node_info)
@@ -202,35 +348,47 @@ def get_node_stats(nodes_stats, roles, specified_roles=None):
 def sort_proc_stats(proc_stats, column, top=None, reverse=True):
   """
   Returns sorted input list with reverse is False.
+
   Args:
-    data_list: A list of proxies statistics.
-    column: An int is a column number the list should be sorted by.
-    top: A list of instances to be printed.
+    proc_stats: A list of processes statistics.
+    column: An int represents a column number the list should be sorted by.
+    top: An int represents a process count to be printed.
+    reverse: A boolean to reverse or not reverse sorted data.
   """
   if not top:
     top = len(proc_stats)
 
   return sorted(proc_stats, key=lambda p: p[column], reverse=reverse)[:top]
 
+
 def sort_prox_stats(prox_stats, column):
   """
-  Returns sorted input list with reverse is False.
   Args:
-    data_list: A list of proxies statistics.
+    prox_stats: A list of proxies statistics.
     column: An int is a column number the list should be sorted by.
+
+  Returns:
+    A list sorted by specified column.
   """
   return sorted(prox_stats, key=lambda p: p[column], reverse=False)
 
-def get_proc_stats(proc_stats, instances=False):
+
+def get_proc_stats(keyname):
   """
   Obtains useful information from processes statistics and returns:
   IP, MONIT NAME, UNIQUE MEMORY (MB), CPU (%) values.
+
+  Args:
+    keyname: A string represents an identifier from AppScaleFile.
+
   Returns:
     A list of headers processes statistics.
     A list of processes statistics.
   """
   proc_stats_headers = ["PRIVATE IP", "MONIT NAME",
                         "UNIQUE MEMORY (MB)", "CPU (%)"]
+
+  proc_stats = _get_stats(keyname=keyname, path="processes")
 
   proc_info = []
   for ip, node in proc_stats.iteritems():
@@ -251,20 +409,29 @@ def get_proc_stats(proc_stats, instances=False):
 
   return proc_stats_headers, proc_info
 
-def get_proc_stats_sum(processes_stats, nodes_stats):
+
+def get_proc_stats_sum(keyname):
   """
   Obtains useful information from processes summary statistics and returns:
-  SERVICE (ID), UNIQUE MEMORY SUM (MB), CPU PER 1 PROCESS (%),
-  CPU PER 1 CORE (%), CPU SUM (%) values.
+  SERVICE (ID), INSTANCES, UNIQUE MEMORY SUM (MB),
+  CPU SUM (%), CPU PER 1 PROCESS (%), CPU PER 1 CORE (%) values.
+
   Args:
-    processes_stats: A dict of a processes statistics.
-    cpu_count: An int - cpu count.
+    keyname: A string represents an identifier from AppScaleFile.
+
   Returns:
     A list of headers processes summary statistics.
     A list of processes summary statistics.
   """
-  cpu_count = sum(int(node["cpu"]["count"])
-                  for node in nodes_stats.itervalues())
+  nodes_stats = _get_stats(
+    keyname=keyname,
+    path='nodes',
+    include_lists=INCLUDE_NODE_LIST_FOR_PROCESSES
+  )
+  cpu_count = sum(
+    int(node["cpu"]["count"])
+    for node in nodes_stats.itervalues()
+  )
 
   procs_info = []
   proc_list = []
@@ -273,6 +440,8 @@ def get_proc_stats_sum(processes_stats, nodes_stats):
   proc_stats_sum_headers = ["SERVICE (ID)", "INSTANCES",
                             "UNIQUE MEMORY SUM (MB)", "CPU SUM (%)",
                             "CPU PER 1 PROCESS (%)", "CPU PER 1 CORE (%)"]
+
+  processes_stats = _get_stats(keyname=keyname, path="processes")
 
   for proc in processes_stats.itervalues():
     proc_list += proc["processes_stats"]
@@ -314,15 +483,18 @@ def get_proc_stats_sum(processes_stats, nodes_stats):
 
   return proc_stats_sum_headers, procs_info
 
-def get_prox_stats(proxies_stats, verbose=False, apps_filter=False):
+
+def get_prox_stats(keyname, verbose=False, apps_filter=False):
   """
   Obtains useful information from processes summary statistics and returns:
   SERVICE (ID), UNIQUE MEMORY SUM (MB), CPU PER 1 PROCESS (%),
   CPU PER 1 CORE (%), CPU SUM (%) values.
+
   Args:
-    proxies_stats: A dict of a proxies statistics.
-    verbose: A bool - verbose or not verbose mode.
-    apps_filter: A bool - show all services or applications only.
+    keyname: A string represents an identifier from AppScaleFile.
+    verbose: A boolean - verbose or not verbose mode.
+    apps_filter: A boolean - show all services or applications only.
+
   Returns:
     A list of headers proxies statistics.
     A list of proxies statistics.
@@ -339,6 +511,8 @@ def get_prox_stats(proxies_stats, verbose=False, apps_filter=False):
   proxies = []
   uniq_proxies = {}
 
+  proxies_stats = _get_stats(keyname=keyname, path="proxies")
+
   for node in proxies_stats.itervalues():
     proxies += node[
       "proxies_stats"]  # proxies += list of dicts with statistic
@@ -354,7 +528,7 @@ def get_prox_stats(proxies_stats, verbose=False, apps_filter=False):
 
     if not service_name_id in uniq_proxies:
       uniq_proxies[service_name_id] = {}
-      uniq_proxies[service_name_id]["servers"] = set()
+      uniq_proxies[service_name_id]["servers_count"] = set()
       uniq_proxies[service_name_id]["req_rate"] = 0
       uniq_proxies[service_name_id]["req_tot"] = 0
       uniq_proxies[service_name_id]["hrsp_5xx"] = 0
@@ -371,9 +545,7 @@ def get_prox_stats(proxies_stats, verbose=False, apps_filter=False):
           uniq_proxies[service_name_id]["qtime"] = 0
           uniq_proxies[service_name_id]["rtime"] = 0
 
-    uniq_proxies[service_name_id]["servers"].update(set(
-      server["svname"] for server in node["servers"]
-    ))
+    uniq_proxies[service_name_id]["servers_count"] = node["servers_count"]
 
     uniq_proxies[service_name_id]["req_rate"] += node["frontend"]["req_rate"]
     uniq_proxies[service_name_id]["req_tot"] += node["frontend"]["req_tot"]
@@ -396,7 +568,7 @@ def get_prox_stats(proxies_stats, verbose=False, apps_filter=False):
     prox = []
     prox.append(key if not key.startswith("application")
                 else key.replace("application", "app", 1))
-    prox.append(len(value["servers"]))
+    prox.append(value["servers_count"])
     prox.append(str(value["req_rate"]) + " / " + str(value["req_tot"]))
     prox.append("{} / {}".format(
       value["hrsp_5xx"] if not value["hrsp_5xx"]
@@ -420,15 +592,11 @@ def get_prox_stats(proxies_stats, verbose=False, apps_filter=False):
   return (prox_stats_headers_verbose
           if verbose else prox_stats_headers), prox_info
 
-def get_core_count(node_stats):
-  """
-  Returns a core count of node.
-  """
-  return sum(int(node["cpu"]["count"]) for node in node_stats.itervalues())
 
 def print_table(table_name, headers, data):
   """
   Prints a list of statistics with specified header.
+
   Args:
     table_name: A string is a name of table.
     headers: A list of headers of statistics.
@@ -451,8 +619,8 @@ def print_table(table_name, headers, data):
     first_n = t.find("\n")
     i = len(t) - first_n - 1
     AppScaleLogger.log(
-      get_marked((("=") * ((i - len(table_name) - 2) / 2))
-                     + " " + table_name + " "
-                     + (("=") * (((i - len(table_name) - 2) / 2)
-                                 + (1 if i % 2 == 1 else 0))), "green"))
+      get_marked(("=" * ((i - len(table_name) - 2) / 2))
+                 + " " + table_name + " "
+                 + ("=" * (((i - len(table_name) - 2) / 2)
+                           + (1 if i % 2 == 1 else 0))), "green"))
     AppScaleLogger.log(t + "\n")

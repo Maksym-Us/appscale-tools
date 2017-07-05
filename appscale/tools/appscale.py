@@ -25,6 +25,7 @@ from custom_exceptions import ShellException
 # AppScale-specific imports
 from appengine_helper import AppEngineHelper
 from appscale_tools import AppScaleTools
+from appscale_stats import show_stats
 from local_state import LocalState
 from node_layout import NodeLayout
 from parse_args import ParseArgs
@@ -111,7 +112,7 @@ Available commands:
     [--order-processes, -o
     [cpu/mem/name]]                 Prints processes sorted by cpu/memory/name.
     [--top <number>]                Prints only top-<number> processes.
-    [--verbose, -v]                 Prints verbose processes and proxies stats.
+    [--verbose, -v]                 Prints verbose nodes, processes and proxies stats.
     [--apps-only]                   Prints only applications proxies stats.
   status                            Reports on the state of a currently
                                     running AppScale deployment.
@@ -468,10 +469,14 @@ Available commands:
     for proxies statistics. If non options are listed it will show full
     statistics about nodes, processes and proxies without filter and
     sorted by default characteristic.
+
     Args:
       options: A list of additional options about what statistics and how it
-        should be shown (nodes, processes, proxies / verbose or
-        not verbose mode / sort by / filter).
+        should be shown.
+
+    Raises:
+      AppScalefileException: If there is no AppScalefile in the current
+      directory.
     """
     contents = self.read_appscalefile()
     command = params_list or []
@@ -481,7 +486,7 @@ Available commands:
       command.append(contents_as_yaml['keyname'])
 
     options = ParseArgs(command, "appscale-show-stats").args
-    AppScaleTools.show_stats(options)
+    show_stats(options)
 
 
   def status(self, extra_options_list=None):
