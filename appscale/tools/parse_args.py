@@ -391,10 +391,11 @@ class ParseArgs(object):
       self.parser.add_argument('--order-processes', '-o',
         nargs=1,
         choices=['cpu', 'mem', 'name'],
-        default='cpu',
+        default=['cpu'],
         help="the arguments provide processes statistics order by")
       self.parser.add_argument('--top',
-        default=None,
+        type=int,
+        default=0,
         help="a number of top-processes to be printed")
       self.parser.add_argument('--apps-only',
         action='store_true',
