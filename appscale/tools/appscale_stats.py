@@ -42,11 +42,14 @@ def _get_stats(keyname, stats_kind, include_lists):
     keyname: A string representing an identifier from AppScaleFile.
     stats_kind: A string representing a kind of statistics.
     include_lists: A dict representing desired fields.
+
+  Returns:
+    A dict of statistics.
+    A dict of failures.
   """
   login_host = LocalState.get_login_host(keyname=keyname)
   secret = LocalState.get_secret_key(keyname=keyname)
   hermes_port = "17441"
-  hermes_port = "4378"    # TODO: REMOVE THIS LINE !!!
   stats_path = "/stats/cluster/{stats_kind}".format(stats_kind=stats_kind)
 
   headers = {
@@ -57,29 +60,13 @@ def _get_stats(keyname, stats_kind, include_lists):
     'include_lists': include_lists
   }
 
-  # TODO: CHANGE TO https
-  url = "http://{ip}:{port}{path}".format(
+  url = "https://{ip}:{port}{path}".format(
     ip=login_host,
     port=hermes_port,
     path=stats_path
   )
 
   resp = requests.get(url=url, headers=headers, json=data).json()
-
-  # TODO: REMOVE
-  if stats_kind == "nodes":
-    resp["failures"] = {
-      "192.168.33.10": "ERROR MESSAGE 1"
-    }
-  if stats_kind == "processes":
-    resp["failures"] = {
-      "192.168.33.10": "ERROR MESSAGE 2"
-    }
-  if stats_kind == "proxies":
-    resp["failures"] = {
-      "192.168.33.10": "ERROR MESSAGE 3"
-    }
-  # TODO: REMOVE
 
   return resp["stats"], resp["failures"]
 
