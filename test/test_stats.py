@@ -381,11 +381,11 @@ class TestStats(unittest.TestCase):
     self.assertEqual(expected_proxy_stats, proxy_stats)
 
   def test_get_proxy_stats_order_and_verbose_and_apps_only(self):
-    proxy_headers, proxy_stats = get_proxy_stats(
+    proxy_stats = get_proxy_stats(
       raw_proxy_stats=self.test_raw_proxy_stats,
       verbose=True,
       apps_filter=True
-    )
+    )[1]
 
     proxy_stats = sort_proxy_stats(
       proxy_stats=proxy_stats,
