@@ -125,9 +125,9 @@ def show_stats(options):
         failures["nodes"] = node_failures
 
     process_headers, process_stats = (
-      get_proc_stats(raw_process_stats=raw_process_stats)
+      get_process_stats(raw_process_stats=raw_process_stats)
       if options.verbose
-      else get_proc_stats_sum(
+      else get_summary_process_stats(
         raw_process_stats=raw_process_stats,
         raw_node_stats=raw_node_stats
       )
@@ -330,7 +330,8 @@ def get_roles(keyname):
   return roles_data
 
 
-def get_node_stats(raw_node_stats, all_roles, specified_roles=None, verbose=False):
+def get_node_stats(raw_node_stats, all_roles,
+                   specified_roles=None, verbose=False):
   """
   Obtaines useful information from node statistics and returns:
   PRIVATE IP, AVAILABLE MEMORY, LOADAVG, PARTITIONS USAGE, ROLES values.
@@ -386,7 +387,7 @@ def get_node_stats(raw_node_stats, all_roles, specified_roles=None, verbose=Fals
          sorted(node_stats, key=lambda n: n[0], reverse=False)
 
 
-def get_proc_stats(raw_process_stats):
+def get_process_stats(raw_process_stats):
   """
   Obtains useful information from process statistics and returns:
   PRIVATE IP, MONIT NAME, UNIQUE MEMORY (MB), CPU (%) values.
@@ -423,7 +424,7 @@ def get_proc_stats(raw_process_stats):
   return process_stats_headers, process_stats
 
 
-def get_proc_stats_sum(raw_process_stats, raw_node_stats):
+def get_summary_process_stats(raw_process_stats, raw_node_stats):
   """
   Obtains useful information from summary process statistics and returns:
   SERVICE (ID), INSTANCES, UNIQUE MEMORY SUM (MB),
@@ -510,13 +511,14 @@ def get_proxy_stats(raw_proxy_stats, verbose=False, apps_filter=False):
     A list of proxy statistics headers.
     A list of proxy statistics.
   """
-  proxy_stats_headers = ["SERVICE | ID", "SERVERS", "REQ RATE / REQ TOTAL",
-                        "5xx / 4xx", "QUEUE CUR"]
+  proxy_stats_headers = [
+    "SERVICE | ID", "SERVERS", "REQ RATE / REQ TOTAL", "5xx / 4xx", "QUEUE CUR"
+  ]
 
-  proxy_stats_headers_verbose = ["SERVICE (ID)", "SERVERS",
-                                "REQ RATE / REQ TOTAL",
-                                "5xx / 4xx", "BYTES IN / BYTES OUT",
-                                "SESSION CUR / QUEUE CUR", "QTIME / RTIME"]
+  proxy_stats_headers_verbose = [
+    "SERVICE (ID)", "SERVERS", "REQ RATE / REQ TOTAL", "5xx / 4xx",
+    "BYTES IN / BYTES OUT", "SESSION CUR / QUEUE CUR", "QTIME / RTIME"
+  ]
 
   proxy_stats = []
   proxy_groups = []

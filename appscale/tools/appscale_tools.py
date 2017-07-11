@@ -249,6 +249,7 @@ class AppScaleTools(object):
       AppScaleLogger.warn("AppScale deployment is probably down")
       raise
 
+    # Convert cluster stats to useful structures
     node_stats = {
       ip: next((n for n in cluster_stats if n["private_ip"] == ip), None)
       for ip in all_private_ips
