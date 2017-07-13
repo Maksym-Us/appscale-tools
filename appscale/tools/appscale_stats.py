@@ -49,20 +49,23 @@ def _get_stats(keyname, stats_kind, include_lists):
   """
   login_host = LocalState.get_login_host(keyname=keyname)
   secret = LocalState.get_secret_key(keyname=keyname)
-  hermes_port = "17441"
+  administration_port = "17441"
+  administration_port = "4378"    # TODO
   stats_path = "/stats/cluster/{stats_kind}".format(stats_kind=stats_kind)
 
   headers = {
-    'Appscale-Secret': str(secret)
+    'Appscale-Secret': secret
   }
 
   data = {
     'include_lists': include_lists
   }
 
-  url = "https://{ip}:{port}{path}".format(
+  # TODO
+  # url = "https://{ip}:{port}{path}".format(
+  url = "http://{ip}:{port}{path}".format(
     ip=login_host,
-    port=hermes_port,
+    port=administration_port,
     path=stats_path
   )
 
@@ -136,7 +139,7 @@ def show_stats(options):
       process_stats=process_stats,
       column=order,
       top=options.top,
-      reverse=False if "name" in options.order_processes else True
+      reverse="name" not in options.order_processes
     )
     print_table(
       table_name="SUMMARY PROCESS STATISTICS"
@@ -245,9 +248,8 @@ def render_partitions(partitions, verbose):
     for part in part_list
   ]
 
-  if not verbose:
-    if len(partitions_info) > 3:
-      partitions_info = partitions_info[:3] + ["..."]
+  if not verbose and len(partitions_info) > 3:
+    partitions_info = partitions_info[:3] + ["..."]
 
   return ", ".join(partitions_info)
 
@@ -330,8 +332,7 @@ def get_roles(keyname):
   return roles_data
 
 
-def get_node_stats(raw_node_stats, all_roles,
-                   specified_roles=None, verbose=False):
+def get_node_stats(raw_node_stats, all_roles, specified_roles, verbose):
   """
   Obtaines useful information from node statistics and returns:
   PRIVATE IP, AVAILABLE MEMORY, LOADAVG, PARTITIONS USAGE, ROLES values.
@@ -362,14 +363,6 @@ def get_node_stats(raw_node_stats, all_roles,
       if not matches:
         continue
 
-    if "shadow" not in ip_roles:
-      node_info = [
-        ip,
-        render_memory(memory=node["memory"]),
-        render_loadavg(loadavg=node["loadavg"]),
-        render_partitions(partitions=node["partitions_dict"], verbose=verbose),
-        u", ".join(ip_roles)
-      ]
     if "shadow" in ip_roles:
       node_info = [
         get_marked(ip, "bold"),
@@ -380,6 +373,14 @@ def get_node_stats(raw_node_stats, all_roles,
                             verbose=verbose), "bold"
         ),
         get_marked(u", ".join(ip_roles), "bold")
+      ]
+    else:
+      node_info = [
+        ip,
+        render_memory(memory=node["memory"]),
+        render_loadavg(loadavg=node["loadavg"]),
+        render_partitions(partitions=node["partitions_dict"], verbose=verbose),
+        u", ".join(ip_roles)
       ]
     node_stats.append(node_info)
 
@@ -495,7 +496,7 @@ def get_summary_process_stats(raw_process_stats, raw_node_stats):
   return process_stats_headers, process_stats
 
 
-def get_proxy_stats(raw_proxy_stats, verbose=False, apps_filter=False):
+def get_proxy_stats(raw_proxy_stats, verbose, apps_filter):
   """
   Obtains useful information from proxy statistics and returns:
   SERVICE (ID), UNIQUE MEMORY SUM (MB), CPU PER 1 PROCESS (%),
@@ -528,53 +529,52 @@ def get_proxy_stats(raw_proxy_stats, verbose=False, apps_filter=False):
     proxy_groups += node["proxies_stats"]
 
   for node in proxy_groups:
-    if apps_filter:
-      if "application" != node["unified_service_name"]:
-        continue
+    if apps_filter and "application" != node["unified_service_name"]:
+      continue
 
     service_name_id = node["unified_service_name"]\
                       + (" | " + node["application_id"]
                          if node["application_id"]
                          else "")
 
+    summary_proxy = unique_proxies.get(service_name_id)
     if not service_name_id in unique_proxies:
-      unique_proxies[service_name_id] = {}
-      unique_proxies[service_name_id]["servers_count"] = set()
-      unique_proxies[service_name_id]["req_rate"] = 0
-      unique_proxies[service_name_id]["req_tot"] = 0
-      unique_proxies[service_name_id]["hrsp_5xx"] = 0
-      unique_proxies[service_name_id]["hrsp_4xx"] = 0
+      summary_proxy = {}
+      summary_proxy["req_rate"] = 0
+      summary_proxy["req_tot"] = 0
+      summary_proxy["hrsp_5xx"] = 0
+      summary_proxy["hrsp_4xx"] = 0
 
       if verbose:
-        unique_proxies[service_name_id]["bin"] = 0
-        unique_proxies[service_name_id]["bout"] = 0
-        unique_proxies[service_name_id]["scur"] = 0
+        summary_proxy["bin"] = 0
+        summary_proxy["bout"] = 0
+        summary_proxy["scur"] = 0
 
-      unique_proxies[service_name_id]["qcur"] = 0
+      summary_proxy["qcur"] = 0
 
-      if verbose:
-        if "qtime" and "rtime" in node["backend"]:
-          unique_proxies[service_name_id]["qtime"] = 0
-          unique_proxies[service_name_id]["rtime"] = 0
+      if verbose and "qtime" and "rtime" in node["backend"]:
+        summary_proxy["qtime"] = 0
+        summary_proxy["rtime"] = 0
 
-    unique_proxies[service_name_id]["servers_count"] = node["servers_count"]
+    summary_proxy["servers_count"] = node["servers_count"]
 
-    unique_proxies[service_name_id]["req_rate"] += node["frontend"]["req_rate"]
-    unique_proxies[service_name_id]["req_tot"] += node["frontend"]["req_tot"]
-    unique_proxies[service_name_id]["hrsp_5xx"] += node["frontend"]["hrsp_5xx"]
-    unique_proxies[service_name_id]["hrsp_4xx"] += node["frontend"]["hrsp_4xx"]
-
-    if verbose:
-      unique_proxies[service_name_id]["bin"] += node["frontend"]["bin"]
-      unique_proxies[service_name_id]["bout"] += node["frontend"]["bout"]
-      unique_proxies[service_name_id]["scur"] += node["frontend"]["scur"]
-
-    unique_proxies[service_name_id]["qcur"] += node["backend"]["qcur"]
+    summary_proxy["req_rate"] += node["frontend"]["req_rate"]
+    summary_proxy["req_tot"] += node["frontend"]["req_tot"]
+    summary_proxy["hrsp_5xx"] += node["frontend"]["hrsp_5xx"]
+    summary_proxy["hrsp_4xx"] += node["frontend"]["hrsp_4xx"]
 
     if verbose:
-      if "qtime" and "rtime" in node["backend"]:
-        unique_proxies[service_name_id]["qtime"] += node["backend"]["qtime"]
-        unique_proxies[service_name_id]["rtime"] += node["backend"]["rtime"]
+      summary_proxy["bin"] += node["frontend"]["bin"]
+      summary_proxy["bout"] += node["frontend"]["bout"]
+      summary_proxy["scur"] += node["frontend"]["scur"]
+
+    summary_proxy["qcur"] += node["backend"]["qcur"]
+
+    if verbose and "qtime" and "rtime" in node["backend"]:
+      summary_proxy["qtime"] += node["backend"]["qtime"]
+      summary_proxy["rtime"] += node["backend"]["rtime"]
+
+    unique_proxies[service_name_id] = summary_proxy
 
   for key, value in unique_proxies.iteritems():
     proxy = []
@@ -596,9 +596,8 @@ def get_proxy_stats(raw_proxy_stats, verbose=False, apps_filter=False):
       ((str(value["scur"]) + " / ") if verbose else "") + str(value["qcur"])
     )
 
-    if verbose:
-      if "qtime" and "rtime" in value:
-        proxy.append(str(value["qtime"]) + " / " + str(value["rtime"]))
+    if verbose and "qtime" and "rtime" in value:
+      proxy.append(str(value["qtime"]) + " / " + str(value["rtime"]))
 
     proxy_stats.append(proxy)
 

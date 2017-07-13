@@ -109,13 +109,13 @@ Available commands:
                                     must have public ips to use this command.
   stats                             Prints statistics of nodes and proxies.
     [--show
-    [nodes] [processes] [proxies]]  Prints nodes, processes and/or proxies stats.
-    [--roles, -r <roles>]           Prints nodes ordered by roles.
+    [nodes] [processes] [proxies]]  Determines which stats should be printed.
+    [--roles, -r <roles>]           Filters nodes by roles.
     [--order-processes, -o
-    [cpu/mem/name]]                 Prints processes sorted by cpu/memory/name.
-    [--top <number>]                Prints only top-<number> processes.
-    [--verbose, -v]                 Prints verbose nodes, processes and proxies stats.
-    [--apps-only]                   Prints only applications proxies stats.
+    [cpu/mem/name]]                 Sorts processes by cpu/memory/name.
+    [--top <number>]                Limits a number of printed processes.
+    [--verbose, -v]                 Prints verbose stats.
+    [--apps-only]                   Prints only application proxy stats.
   status                            Reports on the state of a currently
                                     running AppScale deployment.
   tail                              Follows the output of log files of an
