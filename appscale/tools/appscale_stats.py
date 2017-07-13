@@ -50,7 +50,6 @@ def _get_stats(keyname, stats_kind, include_lists):
   login_host = LocalState.get_login_host(keyname=keyname)
   secret = LocalState.get_secret_key(keyname=keyname)
   administration_port = "17441"
-  administration_port = "4378"    # TODO
   stats_path = "/stats/cluster/{stats_kind}".format(stats_kind=stats_kind)
 
   headers = {
@@ -61,9 +60,7 @@ def _get_stats(keyname, stats_kind, include_lists):
     'include_lists': include_lists
   }
 
-  # TODO
-  # url = "https://{ip}:{port}{path}".format(
-  url = "http://{ip}:{port}{path}".format(
+  url = "https://{ip}:{port}{path}".format(
     ip=login_host,
     port=administration_port,
     path=stats_path
