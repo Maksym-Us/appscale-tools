@@ -244,7 +244,8 @@ class TestStats(unittest.TestCase):
     node_headers, node_stats = get_node_stats(
       raw_node_stats=self.test_raw_node_stats,
       all_roles=self.test_all_roles,
-      specified_roles=specified_roles
+      specified_roles=specified_roles,
+      verbose=False
     )
 
     expected_node_headers = [
@@ -271,6 +272,7 @@ class TestStats(unittest.TestCase):
     node_stats = get_node_stats(
       raw_node_stats=self.test_raw_node_stats,
       all_roles=self.test_all_roles,
+      specified_roles=None,
       verbose=verbose
     )[1]
 
@@ -356,7 +358,9 @@ class TestStats(unittest.TestCase):
 
   def test_get_proxy_stats_headers_and_order(self):
     proxy_headers, proxy_stats = get_proxy_stats(
-      raw_proxy_stats=self.test_raw_proxy_stats
+      raw_proxy_stats=self.test_raw_proxy_stats,
+      verbose=False,
+      apps_filter=False
     )
 
     proxy_stats = sort_proxy_stats(
