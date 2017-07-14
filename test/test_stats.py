@@ -4,8 +4,10 @@ import argparse
 
 from mock import patch, Mock
 
-from appscale.tools.appscale_stats import *
-from appscale.tools.appscale_stats import _get_stats
+from appscale.tools.appscale_stats import (
+  get_node_stats, get_process_stats, get_summary_process_stats, get_proxy_stats,
+  sort_process_stats, sort_proxy_stats, show_stats,
+  INCLUDE_NODE_LIST, _get_stats)
 
 
 class TestStats(unittest.TestCase):
@@ -467,7 +469,8 @@ class TestStats(unittest.TestCase):
           'node.partition': ['used', 'total'],
           'node.cpu': ['count']
         }
-      }
+      },
+      verify=False
     )
 
   @patch("appscale.tools.appscale_stats._get_stats")

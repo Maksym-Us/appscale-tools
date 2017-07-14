@@ -66,7 +66,7 @@ def _get_stats(keyname, stats_kind, include_lists):
     path=stats_path
   )
 
-  resp = requests.get(url=url, headers=headers, json=data).json()
+  resp = requests.get(url=url, headers=headers, json=data, verify=False).json()
 
   return resp["stats"], resp["failures"]
 
@@ -239,9 +239,11 @@ def render_partitions(partitions, verbose):
   part_list.sort(key=lambda p: p[1], reverse=True)
 
   partitions_info = [
-    "'{}': {}%".format(part[0], part[1])
+    "'{part}': {usage}%".format(part=part[0], usage=part[1])
     if part[1] < 90
-    else get_marked("'{}': {}%".format(part[0], part[1]), "red")
+    else get_marked(
+      "'{part}': {usage}%".format(part=part[0], usage=part[1]), "red"
+    )
     for part in part_list
   ]
 
@@ -381,8 +383,9 @@ def get_node_stats(raw_node_stats, all_roles, specified_roles, verbose):
       ]
     node_stats.append(node_info)
 
-  return node_stats_headers, \
-         sorted(node_stats, key=lambda n: n[0], reverse=False)
+  node_stats.sort(key=lambda n: n[0], reverse=False)
+
+  return node_stats_headers, node_stats
 
 
 def get_process_stats(raw_process_stats):
@@ -529,10 +532,11 @@ def get_proxy_stats(raw_proxy_stats, verbose, apps_filter):
     if apps_filter and "application" != node["unified_service_name"]:
       continue
 
-    service_name_id = node["unified_service_name"]\
-                      + (" | " + node["application_id"]
-                         if node["application_id"]
-                         else "")
+    service_name_id = (
+      node["unified_service_name"]
+      + (" | " + node["application_id"]
+         if node["application_id"] else "")
+    )
 
     summary_proxy = unique_proxies.get(service_name_id)
     if not service_name_id in unique_proxies:
@@ -598,8 +602,9 @@ def get_proxy_stats(raw_proxy_stats, verbose, apps_filter):
 
     proxy_stats.append(proxy)
 
-  return (proxy_stats_headers_verbose if verbose else proxy_stats_headers), \
-         proxy_stats
+  headers = proxy_stats_headers_verbose if verbose else proxy_stats_headers
+
+  return headers, proxy_stats
 
 
 def print_table(table_name, headers, data):
@@ -611,18 +616,19 @@ def print_table(table_name, headers, data):
     headers: A list of statistics headers.
     data: A list of statistics.
   """
-  t = tabulate(data, headers=headers, tablefmt='simple',
+  table = tabulate(tabular_data=data, headers=headers, tablefmt='simple',
                floatfmt=".1f", numalign="right", stralign="left")
 
-  first_n = t.find("\n")
-  i = (t.find("\n", first_n + 1) if data else len(t)) - first_n - 1
+  table_width = len(table.split("\n", 2)[1])
+  left_signs = "=" * ((table_width - len(table_name) - 2) / 2)
+  right_signs = (left_signs + ("=" if table_width % 2 == 1 else ""))
+  result_table_name = (
+    "{l_signs} {name} {r_signs}"
+      .format(l_signs=left_signs, name=table_name, r_signs=right_signs)
+  )
 
-  AppScaleLogger.log(
-    get_marked(("=" * ((i - len(table_name) - 2) / 2))
-               + " " + table_name + " "
-               + ("=" * (((i - len(table_name) - 2) / 2)
-                         + (1 if i % 2 == 1 else 0))), "green"))
-  AppScaleLogger.log(t + "\n")
+  AppScaleLogger.log(get_marked(data=result_table_name, mark="green"))
+  AppScaleLogger.log(table + "\n")
 
 
 def print_failures(failures):
