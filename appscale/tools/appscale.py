@@ -108,7 +108,7 @@ Available commands:
                                     Default is headnode. Machines
                                     must have public ips to use this command.
   stats                             Prints statistics of nodes and proxies.
-    [--show
+    [--types
     [nodes] [processes] [proxies]]  Determines which stats should be printed.
     [--roles, -r <roles>]           Filters nodes by roles.
     [--order-processes, -o
@@ -488,7 +488,7 @@ Available commands:
     'stats' is a more accessible way to get statistics about nodes, processes
     and/or proxies. It could be shown in verbose or not verbose mode,
     it could be sorted by some characteristic and filter to application only
-    for proxies statistics. If non options are listed it will show full
+    for proxies statistics. If no options are given it will show full
     statistics about nodes, processes and proxies without filter and
     sorted by default characteristic.
 

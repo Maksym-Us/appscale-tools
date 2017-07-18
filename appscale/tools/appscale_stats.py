@@ -5,9 +5,11 @@ from local_state import LocalState
 
 from tabulate import tabulate
 from appscale_logger import AppScaleLogger
+from termcolor import colored
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 
-# Fields needed to nodes statistics
+# Fields needed for node statistics
 INCLUDE_NODE_LIST = {
   'node': ['memory', 'loadavg', 'partitions_dict', 'cpu'],
   'node.loadavg': ['last_1min', 'last_5min', 'last_15min'],
@@ -15,7 +17,7 @@ INCLUDE_NODE_LIST = {
   'node.cpu': ['count']
 }
 
-# Fields needed to processes statistics
+# Fields needed for process statistics
 INCLUDE_PROCESS_LIST = {
   'process': ['unified_service_name', 'application_id', 'monit_name', 'memory',
               'cpu', 'children_num', 'children_stats_sum'],
@@ -24,7 +26,7 @@ INCLUDE_PROCESS_LIST = {
   'process.children_stats_sum': ['memory', 'cpu']
 }
 
-# Fields needed list to proxies statistics
+# Fields needed for proxy statistics
 INCLUDE_PROXY_LIST = {
   'proxy': ['unified_service_name', 'application_id', 'servers_count',
             'frontend', 'backend'],
@@ -32,6 +34,11 @@ INCLUDE_PROXY_LIST = {
                      'bin', 'bout', 'scur'],
   'proxy.backend': ['qtime', 'rtime', 'qcur']
 }
+
+PROCESSES_NAME_COLUMN_NUMBER = 0
+PROCESSES_NAME_COLUMN_VERBOSE_NUMBER = 1
+PROCESSES_MEMORY_COLUMN_NUMBER = 2
+PROCESSES_CPU_COLUMN_NUMBER = 3
 
 
 def _get_stats(keyname, stats_kind, include_lists):
@@ -66,14 +73,30 @@ def _get_stats(keyname, stats_kind, include_lists):
     path=stats_path
   )
 
-  resp = requests.get(url=url, headers=headers, json=data, verify=False).json()
+  try:
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    resp = requests.get(
+      url=url,
+      headers=headers,
+      json=data,
+      verify=False
+    )
+    resp.raise_for_status()
+  except requests.HTTPError as e:
+    AppScaleLogger.warn(
+      "Failed to get {stats_kind} stats."
+      .format(stats_kind=stats_kind)
+    )
+    return {}, {}
+
+  resp = resp.json()
 
   return resp["stats"], resp["failures"]
 
 
 def show_stats(options):
   """
-  Prints nodes, processes and/or proxies statistics nicely.
+  Prints node, process and/or proxy statistics nicely.
 
   Args:
     options: A Namespace that has fields for each parameter that can be
@@ -81,7 +104,7 @@ def show_stats(options):
   """
   failures = {}
 
-  if "nodes" in options.show:
+  if "nodes" in options.types:
     raw_node_stats, node_failures = _get_stats(
       keyname=options.keyname,
       stats_kind="nodes",
@@ -102,20 +125,22 @@ def show_stats(options):
     if node_failures:
       failures["nodes"] = node_failures
 
-  if "processes" in options.show:
-    if "name" in options.order_processes:
-      order = 0 if not options.verbose else 1   # see proc_stats_headers
-    elif "mem" in options.order_processes:
-      order = 2
-    elif "cpu" in options.order_processes:
-      order = 3
+  if "processes" in options.types:
+    if "name" == options.order_processes:
+      order = (PROCESSES_NAME_COLUMN_NUMBER
+               if not options.verbose
+               else PROCESSES_NAME_COLUMN_VERBOSE_NUMBER)
+    elif "mem" == options.order_processes:
+      order = PROCESSES_MEMORY_COLUMN_NUMBER
+    elif "cpu" == options.order_processes:
+      order = PROCESSES_CPU_COLUMN_NUMBER
 
     raw_process_stats, process_failures = _get_stats(
       keyname=options.keyname,
       stats_kind="processes",
       include_lists=INCLUDE_PROCESS_LIST
     )
-    if "nodes" not in options.show:
+    if "nodes" not in options.types:
       raw_node_stats, node_failures = _get_stats(
         keyname=options.keyname,
         stats_kind="nodes",
@@ -135,19 +160,19 @@ def show_stats(options):
     process_stats = sort_process_stats(
       process_stats=process_stats,
       column=order,
-      top=options.top,
+      top=options.top if options.top else None,
       reverse="name" not in options.order_processes
     )
     print_table(
-      table_name="SUMMARY PROCESS STATISTICS"
-      if not options.verbose else "PROCESS STATISTICS",
+      table_name="SUMMARY APPSCALE PROCESS STATISTICS"
+      if not options.verbose else "APPSCALE PROCESS STATISTICS",
       headers=process_headers,
       data=process_stats
     )
     if process_failures:
       failures["processes"] = process_failures
 
-  if "proxies" in options.show:
+  if "proxies" in options.types:
     raw_proxy_stats, proxy_failures = _get_stats(
       keyname=options.keyname,
       stats_kind="proxies",
@@ -186,12 +211,14 @@ def get_marked(data, mark):
   Returns:
     A string marked in.
   """
-  marks = {
-    "red": "\033[91m",
-    "green": "\033[92m",
-    "bold": "\033[1m"
-  }
-  return marks[mark] + str(data) + "\033[0m"
+  colors = ["red", "green"]
+  attrs = ["bold"]
+  if mark in colors:
+    return colored(text=str(data), color=mark)
+  elif mark in attrs:
+    return colored(text=str(data), attrs=[mark])
+  else:
+    return str(data)
 
 
 def render_loadavg(loadavg):
@@ -211,7 +238,7 @@ def render_loadavg(loadavg):
   last_5 = loadavg["last_5min"]
   last_15 = loadavg["last_15min"]
 
-  return "{} / {} / {}".format(
+  return "{} | {} | {}".format(
     last_1 if last_1 < limit_value else get_marked(last_1, "red"),
     last_5 if last_5 < limit_value else get_marked(last_5, "red"),
     last_15 if last_15 < limit_value else get_marked(last_15, "red")
@@ -283,7 +310,7 @@ def sort_process_stats(process_stats, column, top, reverse=True):
   Returns:
     A list of top processes sorted by specified column.
   """
-  if top <= 0:
+  if top == None:
     top = len(process_stats)
 
   return sorted(process_stats, key=lambda p: p[column], reverse=reverse)[:top]
@@ -305,7 +332,7 @@ def sort_proxy_stats(proxy_stats, column):
 
 def get_roles(keyname):
   """
-  Obtaines roles for each ip from AppControllerClient.
+  Obtains roles for each ip from AppControllerClient.
 
   Args:
     keyname: A string representing an identifier from AppScaleFile.
@@ -318,14 +345,11 @@ def get_roles(keyname):
     host=login_host,
     secret=LocalState.get_secret_key(keyname)
   )
-  all_private_ips = login_acc.get_all_private_ips()
   cluster_stats = login_acc.get_cluster_stats()
+
   roles_data = {
-    ip:
-      next(
-        n["roles"] for n in cluster_stats if n["private_ip"] == ip
-      )
-    for ip in all_private_ips
+    node["private_ip"]: (node["roles"] if len(node["roles"]) > 0 else ["?"])
+    for node in cluster_stats
   }
 
   return roles_data
@@ -333,13 +357,13 @@ def get_roles(keyname):
 
 def get_node_stats(raw_node_stats, all_roles, specified_roles, verbose):
   """
-  Obtaines useful information from node statistics and returns:
+  Obtains useful information from node statistics and returns:
   PRIVATE IP, AVAILABLE MEMORY, LOADAVG, PARTITIONS USAGE, ROLES values.
 
   Args:
-    raw_node_stats: A dist in which each key is an ip and value is a dict
+    raw_node_stats: A dict in which each key is an ip and value is a dict
       of useful information.
-    all_roles: A dist in which each key is an ip and value is a role list.
+    all_roles: A dict in which each key is an ip and value is a role list.
     specified_roles: A list representing specified roles
       that nodes should contain.
     verbose: A boolean - add all partitions if True,
@@ -394,7 +418,7 @@ def get_process_stats(raw_process_stats):
   PRIVATE IP, MONIT NAME, UNIQUE MEMORY (MB), CPU (%) values.
 
   Args:
-    raw_process_stats: A dist in which each key is an ip and value is a dict
+    raw_process_stats: A dict in which each key is an ip and value is a dict
       of useful information.
 
   Returns:
@@ -407,7 +431,7 @@ def get_process_stats(raw_process_stats):
 
   process_stats = []
   for ip, node in raw_process_stats.iteritems():
-    stat = node.get("processes_stats")
+    stat = node["processes_stats"]
     for proc in stat:
       memory_unique = int(proc["memory"]["unique"])
       cpu_percent = float(proc["cpu"]["percent"])
@@ -432,7 +456,7 @@ def get_summary_process_stats(raw_process_stats, raw_node_stats):
   CPU SUM (%), CPU PER 1 PROCESS (%), CPU PER 1 CORE (%) values.
 
   Args:
-    raw_process_stats: A dist in which each key is an ip and value is a dict
+    raw_process_stats: A dict in which each key is an ip and value is a dict
       of useful information.
 
   Returns:
@@ -450,7 +474,7 @@ def get_summary_process_stats(raw_process_stats, raw_node_stats):
 
   process_stats_headers = [
     "SERVICE (ID)", "INSTANCES", "UNIQUE MEMORY SUM (MB)",
-    "CPU SUM (%)", "CPU PER 1 PROCESS (%)", "CPU PER 1 CORE (%)"
+    "CPU SUM (%)", "CPU PER PROCESS (%)", "CPU PER CORE (%)"
   ]
 
   for proc in raw_process_stats.itervalues():
@@ -503,7 +527,7 @@ def get_proxy_stats(raw_proxy_stats, verbose, apps_filter):
   CPU PER 1 CORE (%), CPU SUM (%) values.
 
   Args:
-    raw_proxy_stats: A dist in which each key is an ip and value is a dict
+    raw_proxy_stats: A dict in which each key is an ip and value is a dict
       of useful information.
     verbose: A boolean - verbose or not verbose mode.
     apps_filter: A boolean - show all services or applications only.
@@ -513,12 +537,12 @@ def get_proxy_stats(raw_proxy_stats, verbose, apps_filter):
     A list of proxy statistics.
   """
   proxy_stats_headers = [
-    "SERVICE | ID", "SERVERS", "REQ RATE / REQ TOTAL", "5xx / 4xx", "QUEUE CUR"
+    "SERVICE (ID)", "SERVERS", "REQ RATE | REQ TOTAL", "5xx | 4xx", "QUEUE CUR"
   ]
 
   proxy_stats_headers_verbose = [
-    "SERVICE (ID)", "SERVERS", "REQ RATE / REQ TOTAL", "5xx / 4xx",
-    "BYTES IN / BYTES OUT", "SESSION CUR / QUEUE CUR", "QTIME / RTIME"
+    "SERVICE (ID)", "SERVERS", "REQ RATE | REQ TOTAL", "5xx | 4xx",
+    "BYTES IN | BYTES OUT", "SESSION CUR | QUEUE CUR", "QTIME | RTIME"
   ]
 
   proxy_stats = []
@@ -534,7 +558,7 @@ def get_proxy_stats(raw_proxy_stats, verbose, apps_filter):
 
     service_name_id = (
       node["unified_service_name"]
-      + (" | " + node["application_id"]
+      + ((" (" + node["application_id"] + ")")
          if node["application_id"] else "")
     )
 
@@ -582,23 +606,33 @@ def get_proxy_stats(raw_proxy_stats, verbose, apps_filter):
     proxy.append(key if not key.startswith("application")
                 else key.replace("application", "app", 1))
     proxy.append(value["servers_count"])
-    proxy.append(str(value["req_rate"]) + " / " + str(value["req_tot"]))
-    proxy.append("{} / {}".format(
-      value["hrsp_5xx"] if not value["hrsp_5xx"]
-      else get_marked(value["hrsp_5xx"], "red"),
-      value["hrsp_4xx"] if not value["hrsp_4xx"]
-      else get_marked(value["hrsp_4xx"], "red")
+    proxy.append(
+      "{r_rate} | {r_tot}"
+        .format(r_rate=value["req_rate"], r_tot=value["req_tot"])
+    )
+    proxy.append("{hrsp_5xx} | {hrsp_4xx}".format(
+      hrsp_5xx=(value["hrsp_5xx"] if not value["hrsp_5xx"]
+      else get_marked(value["hrsp_5xx"], "red")),
+      hrsp_4xx=(value["hrsp_4xx"] if not value["hrsp_4xx"]
+      else get_marked(value["hrsp_4xx"], "red"))
     ))
 
     if verbose:
-      proxy.append(str(value["bin"]) + " / " + str(value["bout"]))
+      proxy.append(
+        "{bin} | {bout}"
+          .format(bin=value["bin"], bout=value["bout"])
+      )
 
     proxy.append(
-      ((str(value["scur"]) + " / ") if verbose else "") + str(value["qcur"])
+      "{scur}{qcur}"
+        .format(scur=((str(value["scur"]) + " | ") if verbose else ""),
+                qcur=value["qcur"])
     )
 
     if verbose and "qtime" and "rtime" in value:
-      proxy.append(str(value["qtime"]) + " / " + str(value["rtime"]))
+      proxy.append(
+        "{qtime} | {rtime}".format(qtime=value["qtime"], rtime=value["rtime"])
+      )
 
     proxy_stats.append(proxy)
 
@@ -613,15 +647,17 @@ def print_table(table_name, headers, data):
 
   Args:
     table_name: A string representing a name of table.
-    headers: A list of statistics headers.
+    headers: A list of statistic headers.
     data: A list of statistics.
   """
   table = tabulate(tabular_data=data, headers=headers, tablefmt='simple',
-               floatfmt=".1f", numalign="right", stralign="left")
+                   floatfmt=".1f", numalign="right", stralign="left")
 
   table_width = len(table.split("\n", 2)[1])
   left_signs = "=" * ((table_width - len(table_name) - 2) / 2)
-  right_signs = (left_signs + ("=" if table_width % 2 == 1 else ""))
+  right_signs = left_signs + (
+    "=" if (table_width - len(table_name)) % 2 == 1 else ""
+  )
   result_table_name = (
     "{l_signs} {name} {r_signs}"
       .format(l_signs=left_signs, name=table_name, r_signs=right_signs)
