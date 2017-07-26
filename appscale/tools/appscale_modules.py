@@ -78,11 +78,12 @@ def show_modules(options):
 
     for app in apps:
       services = get_response(
-        host=login_host, secret=secret, path=SERVICES_PATH)
+        host=login_host, secret=secret, path=SERVICES_PATH.format(app=app))
 
       for service in services:
         versions = get_response(
-          host=login_host, secret=secret, path=VERSIONS_PATH)
+          host=login_host, secret=secret,
+          path=VERSIONS_PATH.format(app=app, service=service))
 
         modules_dict[app] = app_info = {}
         app_info[service] = versions
