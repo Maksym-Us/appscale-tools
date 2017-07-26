@@ -30,6 +30,7 @@ from node_layout import NodeLayout
 from parse_args import ParseArgs
 from remote_helper import RemoteHelper
 from registration_helper import RegistrationHelper
+from scripts.show_modules import show_modules
 
 
 class AppScale():
@@ -102,6 +103,7 @@ Available commands:
   logs <dir>                        Collects the logs produced by an AppScale
                                     deployment into a directory <dir>: the
                                     directory will be created.
+  modules                           Prints information about app module versions.
   register <deployment_id>          Registers an AppScale deployment with the
                                     AppScale Portal.
   relocate <appid> <http> <https>   Moves the application <appid> to
@@ -919,3 +921,20 @@ Available commands:
     options.terminate = False
     options.clean = False
     AppScaleTools.upgrade(options)
+
+  def modules(self):
+    """ Allows users to get information about application modules.
+
+    Raises:
+      AppScalefileException: If there is no AppScalefile
+      in the current directory.
+    """
+    contents = self.read_appscalefile()
+    command = []
+    contents_as_yaml = yaml.safe_load(contents)
+    if 'keyname' in contents_as_yaml:
+      command.append("--keyname")
+      command.append(contents_as_yaml['keyname'])
+
+    options = ParseArgs(command, "appscale-show-modules").args
+    show_modules(options)
