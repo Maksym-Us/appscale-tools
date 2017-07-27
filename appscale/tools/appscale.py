@@ -30,7 +30,7 @@ from node_layout import NodeLayout
 from parse_args import ParseArgs
 from remote_helper import RemoteHelper
 from registration_helper import RegistrationHelper
-from scripts.show_modules import show_modules
+from scripts.services import print_services
 
 
 class AppScale():
@@ -103,7 +103,6 @@ Available commands:
   logs <dir>                        Collects the logs produced by an AppScale
                                     deployment into a directory <dir>: the
                                     directory will be created.
-  modules                           Prints information about app module versions.
   register <deployment_id>          Registers an AppScale deployment with the
                                     AppScale Portal.
   relocate <appid> <http> <https>   Moves the application <appid> to
@@ -111,6 +110,7 @@ Available commands:
   remove <appid>                    An alias for 'undeploy'.
   set <property> <value>            Sets an AppController <property> to the
                                     provided <value>. For developers only.
+  services                          Prints information about app service versions.
   ssh [#]                           Logs into the #th node of the current
                                     AppScale deployment or a valid role.
                                     Default is headnode. Machines
@@ -922,8 +922,8 @@ Available commands:
     options.clean = False
     AppScaleTools.upgrade(options)
 
-  def modules(self):
-    """ Allows users to get information about application modules.
+  def services(self):
+    """ Allows users to get information about application services.
 
     Raises:
       AppScalefileException: If there is no AppScalefile
@@ -936,5 +936,5 @@ Available commands:
       command.append("--keyname")
       command.append(contents_as_yaml['keyname'])
 
-    options = ParseArgs(command, "appscale-show-modules").args
-    show_modules(options)
+    options = ParseArgs(command, "appscale-services").args
+    print_services(options)

@@ -44,22 +44,22 @@ def get_response(host, secret, path):
   return resp.json()
 
 
-def sort_modules(modules):
+def sort_services(services):
   """
-  Sorts modules by project ID, service ID, version and ports.
+  Sorts services by project ID, service ID, version and ports.
 
   Args:
-    modules: A list specifying the modules information.
+    services: A list specifying the services information.
   Returns:
-    A list specifying the sorted modules information.
+    A list specifying the sorted services information.
   """
-  return sorted(modules,
+  return sorted(services,
                 key=lambda app: (app[0], app[1], app[2], app[3], app[4]))
 
 
-def show_modules(options):
+def print_services(options):
   """
-  Prints an information about project modules.
+  Prints an information about project's services.
 
   Args:
     options: A Namespace that has fields for each parameter that can be
@@ -68,9 +68,9 @@ def show_modules(options):
   login_host = LocalState.get_login_host(keyname=options.keyname)
   secret = LocalState.get_secret_key(keyname=options.keyname)
 
-  table_name = "MODULES INFO"
-  modules_headers = ["APPLICATION", "MODULE", "VERSION", "HTTP", "HTTPS"]
-  modules_dict = {}
+  table_name = "SERVICES INFO"
+  services_headers = ["APPLICATION", "SERVICE", "VERSION", "HTTP", "HTTPS"]
+  services_dict = {}
 
   try:
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -85,20 +85,20 @@ def show_modules(options):
           host=login_host, secret=secret,
           path=VERSIONS_PATH.format(app=app, service=service))
 
-        modules_dict[app] = app_info = {}
+        services_dict[app] = app_info = {}
         app_info[service] = versions
 
   except requests.HTTPError as e:
-    AppScaleLogger.warn("Failed to get modules info.")
+    AppScaleLogger.warn("Failed to get services info.")
     AppScaleLogger.warn(e)
 
-  modules_info = []
-  for app, app_info in modules_dict.iteritems():
-    for module, module_info in app_info.iteritems():
-      for version, version_info in module_info.iteritems():
-        modules_info.append([
+  services_info = []
+  for app, app_info in services_dict.iteritems():
+    for service, service_info in app_info.iteritems():
+      for version, version_info in service_info.iteritems():
+        services_info.append([
           app,
-          module,
+          service,
           version,
           version_info["http_port"],
           version_info["https_port"]
@@ -106,6 +106,6 @@ def show_modules(options):
 
   print_table(
     table_name=table_name,
-    headers=modules_headers,
-    data=sort_modules(modules_info)
+    headers=services_headers,
+    data=sort_services(services_info)
   )

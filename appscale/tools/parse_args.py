@@ -415,7 +415,7 @@ class ParseArgs(object):
       self.parser.add_argument(
         '--test', action='store_true', default=False,
         help='Skips user input when upgrading deployment')
-    elif function == "appscale-show-modules":
+    elif function == "appscale-services":
       self.parser.add_argument('--keyname', '-k',
         default=self.DEFAULT_KEYNAME,
         help="the keypair name to use")
@@ -496,7 +496,7 @@ class ParseArgs(object):
       pass
     elif function == "appscale-upgrade":
       pass
-    elif function == "appscale-show-modules":
+    elif function == "appscale-services":
       pass
     else:
       raise SystemExit

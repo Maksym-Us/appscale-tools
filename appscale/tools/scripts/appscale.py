@@ -219,9 +219,9 @@ def main():
     except Exception as exception:
       LocalState.generate_crash_log(exception, traceback.format_exc())
       sys.exit(1)
-  elif command == "modules":
+  elif command == "services":
     try:
-      appscale.modules()
+      appscale.services()
     except Exception as exception:
       LocalState.generate_crash_log(exception, traceback.format_exc())
       sys.exit(1)
