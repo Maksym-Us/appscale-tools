@@ -922,9 +922,11 @@ Available commands:
     options.clean = False
     AppScaleTools.upgrade(options)
 
-  def services(self):
+  def services(self, appid=None):
     """ Allows users to get information about application services.
 
+    Args:
+      appid: A str indicating the name of the application.
     Raises:
       AppScalefileException: If there is no AppScalefile
       in the current directory.
@@ -935,6 +937,9 @@ Available commands:
     if 'keyname' in contents_as_yaml:
       command.append("--keyname")
       command.append(contents_as_yaml['keyname'])
+
+    command.append("--appname")
+    command.append(appid)
 
     options = ParseArgs(command, "appscale-services").args
     print_services(options)

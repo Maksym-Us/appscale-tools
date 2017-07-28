@@ -57,6 +57,38 @@ def sort_services(services):
                 key=lambda app: (app[0], app[1], app[2], app[3], app[4]))
 
 
+def obtain_services_info(host, secret, app):
+  """
+  Obtains services information to specify app ID.
+
+  Args:
+    host: A string specifying the login host.
+    secret: A string specifying the secret key.
+    app: A string specifying the app ID.
+  Returns:
+    A list specifying app, service and version information.
+  """
+  app_id = app["id"]
+  services = get_response(
+    host=host, secret=secret,
+    path=SERVICES_PATH.format(app_id=app_id))
+
+  for service in services["services"]:
+    service_id = service["id"]
+    versions = get_response(
+      host=host, secret=secret,
+      path=VERSIONS_PATH.format(app_id=app_id, service_id=service_id))
+
+    for version in versions["versions"]:
+      return [
+        app_id,
+        service_id,
+        version["id"],
+        version["http_port"],
+        version["https_port"]
+      ]
+
+
 def print_services(options):
   """
   Prints an information about project's services.
@@ -69,39 +101,34 @@ def print_services(options):
   secret = LocalState.get_secret_key(keyname=options.keyname)
 
   table_name = "SERVICES INFO"
-  services_headers = ["APPLICATION", "SERVICE", "VERSION", "HTTP", "HTTPS"]
+  headers = ["APPLICATION", "SERVICE", "VERSION", "HTTP", "HTTPS"]
   services_info = []
 
   try:
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-    apps = get_response(host=login_host, secret=secret, path=APPS_PATH)
 
-    for app in apps["apps"]:
-      app_id = app["id"]
-      services = get_response(
+    if options.appname:
+      app = get_response(
         host=login_host, secret=secret,
-        path=SERVICES_PATH.format(app_id=app_id))
+        path="{apps_path}/{app}".format(
+          apps_path=APPS_PATH, app=options.appname))
 
-      for service in services["services"]:
-        service_id = service["id"]
-        versions = get_response(
-          host=login_host, secret=secret,
-          path=VERSIONS_PATH.format(app_id=app_id, service_id=service_id))
+      services_info.append(
+        obtain_services_info(host=login_host, secret=secret, app=app))
 
-        for version in versions["versions"]:
-          services_info.append([
-            app_id,
-            service_id,
-            version["id"],
-            version["http_port"],
-            version["https_port"]
-          ])
+    else:
+      apps = get_response(host=login_host, secret=secret, path=APPS_PATH)
+
+      for app in apps["apps"]:
+        services_info.append(
+          obtain_services_info(host=login_host, secret=secret, app=app))
+
   except requests.HTTPError as e:
     AppScaleLogger.warn("Failed to get services info.")
     AppScaleLogger.warn(e)
 
   print_table(
     table_name=table_name,
-    headers=services_headers,
+    headers=headers,
     data=sort_services(services_info)
   )

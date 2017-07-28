@@ -419,6 +419,9 @@ class ParseArgs(object):
       self.parser.add_argument('--keyname', '-k',
         default=self.DEFAULT_KEYNAME,
         help="the keypair name to use")
+      self.parser.add_argument('--appname',
+        default='',
+        help="the project id")
     else:
       raise SystemExit
 
