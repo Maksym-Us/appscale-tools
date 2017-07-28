@@ -7,8 +7,8 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 
 APPS_PATH = "/v1/apps"
-SERVICES_PATH = "/v1/apps/{app}/services"
-VERSIONS_PATH = "/v1/apps/{app}/services/{service}/versions"
+SERVICES_PATH = "/v1/apps/{app_id}/services"
+VERSIONS_PATH = "/v1/apps/{app_id}/services/{service_id}/versions"
 
 
 def get_response(host, secret, path):
@@ -70,39 +70,35 @@ def print_services(options):
 
   table_name = "SERVICES INFO"
   services_headers = ["APPLICATION", "SERVICE", "VERSION", "HTTP", "HTTPS"]
-  services_dict = {}
+  services_info = []
 
   try:
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
     apps = get_response(host=login_host, secret=secret, path=APPS_PATH)
 
-    for app in apps:
+    for app in apps["apps"]:
+      app_id = app["id"]
       services = get_response(
-        host=login_host, secret=secret, path=SERVICES_PATH.format(app=app))
+        host=login_host, secret=secret,
+        path=SERVICES_PATH.format(app_id=app_id))
 
-      for service in services:
+      for service in services["services"]:
+        service_id = service["id"]
         versions = get_response(
           host=login_host, secret=secret,
-          path=VERSIONS_PATH.format(app=app, service=service))
+          path=VERSIONS_PATH.format(app_id=app_id, service_id=service_id))
 
-        services_dict[app] = app_info = {}
-        app_info[service] = versions
-
+        for version in versions["versions"]:
+          services_info.append([
+            app_id,
+            service_id,
+            version["id"],
+            version["http_port"],
+            version["https_port"]
+          ])
   except requests.HTTPError as e:
     AppScaleLogger.warn("Failed to get services info.")
     AppScaleLogger.warn(e)
-
-  services_info = []
-  for app, app_info in services_dict.iteritems():
-    for service, service_info in app_info.iteritems():
-      for version, version_info in service_info.iteritems():
-        services_info.append([
-          app,
-          service,
-          version,
-          version_info["http_port"],
-          version_info["https_port"]
-        ])
 
   print_table(
     table_name=table_name,
