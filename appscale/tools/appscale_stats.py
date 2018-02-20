@@ -1,13 +1,14 @@
 from collections import defaultdict
+
 import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from tabulate import tabulate
 
 from appcontroller_client import AppControllerClient
-from local_state import LocalState
 
-from tabulate import tabulate
 from appscale_logger import AppScaleLogger
-from termcolor import colored
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from local_state import LocalState
+from utils import styled
 
 
 # Fields needed for node statistics
@@ -221,29 +222,6 @@ def show_stats(options):
     print_failures(failures=failures)
 
 
-def styled(data, mark=None, if_=True):
-  """
-  Marks data in a specified mark.
-
-  Args:
-    data: An object to be marked in.
-    mark: A string representing one of the existing marks
-      ('red', 'green' or 'bold').
-    if_: A boolean showing if mark should be applied.
-
-  Returns:
-    A string marked in.
-  """
-  colors = ["red", "green"]
-  attrs = ["bold"]
-  if mark in colors and if_:
-    return colored(text=unicode(data), color=mark)
-  elif mark in attrs and if_:
-    return colored(text=unicode(data), attrs=[mark])
-  else:
-    return unicode(data)
-
-
 def render_loadavg(loadavg):
   """
   Renders loadavg information.
@@ -261,10 +239,10 @@ def render_loadavg(loadavg):
   last_5 = round(loadavg["last_5min"], 1)
   last_15 = round(loadavg["last_15min"], 1)
 
-  return " ".join([
-    styled(last_1, "red", if_=last_1<=limit_value),
-    styled(last_5, "red", if_=last_5<=limit_value),
-    styled(last_15, "red", if_=last_15<=limit_value)
+  return u" ".join([
+    styled(last_1, "red", if_=last_1>=limit_value),
+    styled(last_5, "red", if_=last_5>=limit_value),
+    styled(last_15, "red", if_=last_15>=limit_value)
   ])
 
 
@@ -291,7 +269,7 @@ def render_partitions(partitions, verbose):
   partitions_info = [
     styled(
       "{part}: {usage}".format(part=part[0], usage=part[1]),
-      "red", if_=part[1]<90
+      "red", if_=part[1]>90
     )
     for part in part_list
   ]
@@ -484,8 +462,8 @@ def get_summary_process_stats_rows(raw_process_stats, raw_node_stats):
   unique_processes = set()
 
   process_stats_headers = [
-    "SERVICE (ID)", "INSTANCES", u"MEM \u2211 MB",
-    u"CPU% \u2211", "CPU% PER PROCESS", "CPU% PER CORE"
+    "SERVICE (ID)", "INSTANCES", u"\u2211 MEM MB",
+    u"\u2211 CPU%", "CPU% PER PROCESS", "CPU% PER CORE"
   ]
 
   for proc in raw_process_stats.itervalues():
@@ -636,16 +614,17 @@ def print_table(table_name, headers, data):
                    floatfmt=".1f", numalign="right", stralign="left")
 
   table_width = len(table.split("\n", 2)[1])
-  left_signs = "=" * ((table_width - len(table_name) - 2) / 2)
+  left_signs = " " * ((table_width - len(table_name) - 2) / 2)
   right_signs = left_signs + (
-    "=" if (table_width - len(table_name)) % 2 == 1 else ""
+    " " if (table_width - len(table_name)) % 2 == 1 else ""
   )
   result_table_name = (
     "{l_signs} {name} {r_signs}"
       .format(l_signs=left_signs, name=table_name, r_signs=right_signs)
   )
 
-  AppScaleLogger.log(styled(data=result_table_name, mark="green"))
+  title = styled(result_table_name, "bold", "back_light_blue")
+  AppScaleLogger.log(title)
   AppScaleLogger.log(table + "\n")
 
 
