@@ -157,11 +157,11 @@ def show_stats(options):
     process_stats = sort_process_stats_rows(
       process_stats=process_stats,
       column=order,
-      top=options.top if options.top else None,
+      top=options.top,
       reverse="name" not in options.order_processes
     )
     print_table(
-      table_name="SUMMARY APPSCALE PROCESS STATISTICS",
+      table_name="Summary for top {} APPSCALE PROCESSES".format(options.top),
       headers=process_headers,
       data=process_stats
     )
@@ -182,11 +182,11 @@ def show_stats(options):
       process_stats = sort_process_stats_rows(
         process_stats=process_stats,
         column=order,
-        top=options.top if options.top else None,
+        top=options.top,
         reverse="name" not in options.order_processes
       )
       print_table(
-        table_name="APPSCALE PROCESS STATISTICS",
+        table_name="Top {} APPSCALE PROCESSES".format(options.top),
         headers=process_headers,
         data=process_stats
       )
@@ -623,7 +623,7 @@ def print_table(table_name, headers, data):
       .format(l_signs=left_signs, name=table_name, r_signs=right_signs)
   )
 
-  title = styled(result_table_name, "bold", "back_light_blue")
+  title = styled(result_table_name, "bold", "blue", "reverse")
   AppScaleLogger.log(title)
   AppScaleLogger.log(table + "\n")
 
