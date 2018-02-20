@@ -240,9 +240,9 @@ def render_loadavg(loadavg):
   last_15 = round(loadavg["last_15min"], 1)
 
   return u" ".join([
-    styled(last_1, "red", if_=last_1>=limit_value),
-    styled(last_5, "red", if_=last_5>=limit_value),
-    styled(last_15, "red", if_=last_15>=limit_value)
+    styled(last_1, "red", "bold", if_=last_1>=limit_value),
+    styled(last_5, "red", "bold", if_=last_5>=limit_value),
+    styled(last_15, "red", "bold", if_=last_15>=limit_value)
   ])
 
 
@@ -269,7 +269,7 @@ def render_partitions(partitions, verbose):
   partitions_info = [
     styled(
       "{part}: {usage}".format(part=part[0], usage=part[1]),
-      "red", if_=part[1]>90
+      "red", "bold", if_=part[1]>90
     )
     for part in part_list
   ]
@@ -579,12 +579,12 @@ def get_proxy_stats_rows(raw_proxy_stats, verbose, apps_filter):
       key.replace("application", "app", 1),
       "{} | {}".format(
         value["servers_count"],
-        styled(servers_down, "red", if_=servers_down)
+        styled(servers_down, "red", "bold", if_=servers_down)
       ),
       "{req_rate} | {req_tot}".format(**value),
       "{hrsp_5xx} | {hrsp_4xx}".format(
-        hrsp_5xx=styled(value["hrsp_5xx"], "red", if_=value["hrsp_5xx"]),
-        hrsp_4xx=styled(value["hrsp_4xx"], "red", if_=value["hrsp_4xx"])
+        hrsp_5xx=styled(value["hrsp_5xx"], "red", "bold", if_=value["hrsp_5xx"]),
+        hrsp_4xx=styled(value["hrsp_4xx"], "red", "bold", if_=value["hrsp_4xx"])
       )
     ]
 
